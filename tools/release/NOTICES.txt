@@ -1,0 +1,12 @@
+This tool is not made or approved by LocalThunk or Playstack. Balatro belongs to its owners.
+This folder contains no Balatro files.
+
+Other software in this folder:
+
+tool\cg.dll: NVIDIA Cg Toolkit 3.1, unmodified. Copyright NVIDIA Corporation. See tool\Cg_LICENSE.txt.
+tool\cgcomp.exe and tool\pkg.exe: built from PSL1GHT. See tool\PSL1GHT_LICENSE.txt.
+python\: Python, with its license in python\LICENSE.txt.
+python\Lib\site-packages\PIL: Pillow, with its license in the pillow dist-info folder beside it.
+
+The PS3 runtime in runtime\EBOOT.BIN includes Lua, FreeType, libogg, libvorbis, zlib and PSL1GHT.
+Each one keeps its own copyright. Their licenses permit this use.

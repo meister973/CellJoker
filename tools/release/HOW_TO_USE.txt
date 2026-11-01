@@ -1,0 +1,35 @@
+BALATRO ON PS3 - MAKE YOUR OWN PKG
+This tool makes a PS3 PKG from your own copy of Balatro. It does not contain the game.
+You need Windows, a copy of Balatro from Steam, and a PS3 with CFW or PS3HEN.
+Do not share the PKG that it makes, because it contains the game.
+
+1. MAKE THE PKG
+Unzip this folder. Drag Balatro.exe onto make_pkg.bat.
+Balatro.exe is in your Steam folder:
+    Steam\steamapps\common\Balatro\Balatro.exe
+Wait a minute or two. balatro-ps3.pkg appears in this folder.
+Windows can warn you the first time, because this tool is not signed by a company.
+
+2. INSTALL
+Put balatro-ps3.pkg in the root of a FAT32 USB stick, not in a folder.
+On the PS3, go to Game > Package Manager > Install Package Files.
+
+3. PLAY
+Start "Balatro" from the XMB. The first load takes a while.
+Press the d-pad first on each screen, so that a button is selected.
+Cross = select   Circle = back   Square = play hand   Triangle = discard
+The main profile has everything unlocked, and there is no tutorial.
+To start fresh with nothing unlocked, choose another profile in the game's Profile menu.
+To quit, press the PS button and choose Quit Game.
+
+SAVES
+Your run and settings save by themselves. They are on the PS3 in this folder:
+    /dev_hdd0/game/BLTR00001/USRDIR/save/
+If you delete the game, you also delete the saves. Copy the folder first to keep them.
+
+KNOWN LIMITS
+Japanese, Korean and Chinese are not available, because their fonts are too large.
+
+IF SOMETHING GOES WRONG
+The log is on the PS3 at /dev_hdd0/tmp/balatro_log.txt
+Its time= values show the frame rate, and underruns= counts clicks in the sound.

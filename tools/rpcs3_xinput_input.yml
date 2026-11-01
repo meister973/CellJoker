@@ -1,0 +1,29 @@
+Player 1 Input:
+  Handler: XInput
+  Device: "XInput Pad #1"
+  Config:
+    Left Stick Left: LS X-
+    Left Stick Down: LS Y-
+    Left Stick Right: LS X+
+    Left Stick Up: LS Y+
+    Right Stick Left: RS X-
+    Right Stick Down: RS Y-
+    Right Stick Right: RS X+
+    Right Stick Up: RS Y+
+    Start: Start
+    Select: Back
+    PS Button: Guide
+    Square: X
+    Cross: A
+    Circle: B
+    Triangle: Y
+    Left: Left
+    Down: Down
+    Right: Right
+    Up: Up
+    R1: RB
+    R2: RT
+    R3: RS
+    L1: LB
+    L2: LT
+    L3: LS

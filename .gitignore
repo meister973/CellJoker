@@ -1,0 +1,15 @@
+Balatro/
+game/
+_recon/
+tools/rpcs3/
+tools/firmware/
+runs/
+build/
+cooked/
+*.elf
+*.self
+*.pkg
+__pycache__/
+.superpowers/
+generated/
+dist/
