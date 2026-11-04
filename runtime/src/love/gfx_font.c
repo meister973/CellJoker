@@ -8,9 +8,16 @@
 
 #include "gfx.h"
 
-#define ATLAS_SIZE     2048
-#define GLYPH_PADDING  2
-#define GLYPH_SLOTS    1024
+#define ATLAS_SIZE       2048
+#define GLYPH_PADDING    2
+#define GLYPH_SLOTS      1024
+#define GLYPH_SLOTS_FULL (GLYPH_SLOTS * 3 / 4)
+
+/* CJK faces have 10000+ glyphs. They rasterise smaller, into a smaller atlas, so a screen of
+ * text fits and all four CJK fonts fit in RSX memory. */
+#define LARGE_FACE_GLYPHS  10000
+#define LARGE_FACE_PIXELS  64
+#define LARGE_ATLAS_HEIGHT 1024
 
 typedef struct {
     u32 codepoint;
@@ -21,63 +28,51 @@ typedef struct {
 struct GfxFont {
     FT_Face face;
     GfxTexture *atlas;
+    u32 atlas_width;
+    u32 atlas_height;
     u32 pen_x;
     u32 pen_y;
     u32 row_height;
     f32 height;
     f32 ascent;
+    f32 scale;
+    u32 slots_used;
     GlyphSlot slots[GLYPH_SLOTS];
 };
 
 static FT_Library library;
 
-static void *read_whole_file(const char *path, long *size)
-{
-    FILE *file = fopen(path, "rb");
-
-    if (file == NULL)
-        return NULL;
-
-    fseek(file, 0, SEEK_END);
-    *size = ftell(file);
-    fseek(file, 0, SEEK_SET);
-
-    void *bytes = malloc(*size);
-    if (bytes != NULL && fread(bytes, 1, *size, file) != (size_t)*size) {
-        free(bytes);
-        bytes = NULL;
-    }
-    fclose(file);
-    return bytes;
-}
-
 GfxFont *gfx_font_open(const char *path, u32 pixel_size)
 {
-    long size;
-
     if (library == NULL && FT_Init_FreeType(&library) != 0)
         return NULL;
 
-    /* FreeType keeps reading from this memory for as long as the face lives. */
-    void *bytes = read_whole_file(path, &size);
     GfxFont *font = calloc(1, sizeof(GfxFont));
 
-    if (bytes == NULL || font == NULL)
+    if (font == NULL)
         return NULL;
-    if (FT_New_Memory_Face(library, bytes, size, 0, &font->face) != 0)
+    /* Read from disk on demand: the CJK faces total 63 MB, too much for main RAM. */
+    if (FT_New_Face(library, path, 0, &font->face) != 0 || FT_Set_Pixel_Sizes(font->face, 0, pixel_size) != 0) {
+        free(font);
         return NULL;
-    if (FT_Set_Pixel_Sizes(font->face, 0, pixel_size) != 0)
-        return NULL;
-
-    font->atlas = gfx_texture_create(ATLAS_SIZE, ATLAS_SIZE, false);
-    if (font->atlas == NULL)
-        return NULL;
-    memset(font->atlas->pixels, 0, font->atlas->pitch * ATLAS_SIZE);
+    }
 
     font->pen_x = GLYPH_PADDING;
     font->pen_y = GLYPH_PADDING;
     font->ascent = font->face->size->metrics.ascender >> 6;
     font->height = font->face->size->metrics.height >> 6;
+    font->scale = 1.0f;
+    font->atlas_width = ATLAS_SIZE;
+    font->atlas_height = ATLAS_SIZE;
+
+    if (font->face->num_glyphs > LARGE_FACE_GLYPHS) {
+        font->atlas_height = LARGE_ATLAS_HEIGHT;
+        if (pixel_size > LARGE_FACE_PIXELS) {
+            if (FT_Set_Pixel_Sizes(font->face, 0, LARGE_FACE_PIXELS) != 0)
+                return NULL;
+            font->scale = (f32)pixel_size / LARGE_FACE_PIXELS;
+        }
+    }
     return font;
 }
 
@@ -99,71 +94,110 @@ static void copy_bitmap(GfxFont *font, const FT_Bitmap *bitmap)
 
 static int place_in_atlas(GfxFont *font, u32 width, u32 height)
 {
-    if (font->pen_x + width + GLYPH_PADDING > ATLAS_SIZE) {
+    if (font->pen_x + width + GLYPH_PADDING > font->atlas_width) {
         font->pen_x = GLYPH_PADDING;
         font->pen_y += font->row_height + GLYPH_PADDING;
         font->row_height = 0;
     }
-    if (font->pen_y + height + GLYPH_PADDING > ATLAS_SIZE)
+    if (font->pen_y + height + GLYPH_PADDING > font->atlas_height)
         return -1;
     if (height > font->row_height)
         font->row_height = height;
     return 0;
 }
 
-static void rasterise(GfxFont *font, u32 codepoint, GfxGlyph *glyph)
+/* Empties the atlas and the glyph table. Draws already queued may still sample the old glyphs. */
+static void reset_atlas(GfxFont *font)
+{
+    printf("font: glyph cache full, starting over\n");
+    gfx_wait_idle();
+    gfx_texture_changed();
+    if (font->atlas != NULL)
+        memset(font->atlas->pixels, 0, font->atlas->pitch * font->atlas_height);
+    memset(font->slots, 0, sizeof(font->slots));
+    font->slots_used = 0;
+    font->pen_x = GLYPH_PADDING;
+    font->pen_y = GLYPH_PADDING;
+    font->row_height = 0;
+}
+
+/* Returns -1 when the atlas has no room left for this glyph. */
+static int rasterise(GfxFont *font, u32 codepoint, GfxGlyph *glyph)
 {
     memset(glyph, 0, sizeof(*glyph));
 
     if (FT_Load_Char(font->face, codepoint, FT_LOAD_RENDER) != 0)
-        return;
+        return 0;
 
     FT_GlyphSlot slot = font->face->glyph;
     const FT_Bitmap *bitmap = &slot->bitmap;
 
-    glyph->advance = (f32)(slot->advance.x >> 6);
+    glyph->advance = (f32)(slot->advance.x >> 6) * font->scale;
     if (bitmap->width == 0 || bitmap->rows == 0)
-        return;
+        return 0;
 
-
-    if (place_in_atlas(font, bitmap->width, bitmap->rows) != 0) {
-        printf("font: atlas full at codepoint %u\n", codepoint);
-        return;
+    /* Made on first use: a font the game opens but never draws costs no RSX memory. */
+    if (font->atlas == NULL) {
+        font->atlas = gfx_texture_create(font->atlas_width, font->atlas_height, false);
+        if (font->atlas == NULL) {
+            printf("font: no RSX memory for a %ux%u atlas\n", font->atlas_width, font->atlas_height);
+            return 0;
+        }
+        memset(font->atlas->pixels, 0, font->atlas->pitch * font->atlas_height);
     }
+
+    if (place_in_atlas(font, bitmap->width, bitmap->rows) != 0)
+        return -1;
 
     /* The batch may hold draws that sample the atlas, and the texture cache must refresh. */
     gfx_texture_changed();
     copy_bitmap(font, bitmap);
 
-    glyph->width = (f32)bitmap->width;
-    glyph->height = (f32)bitmap->rows;
-    glyph->left = (f32)slot->bitmap_left;
-    glyph->top = font->ascent - (f32)slot->bitmap_top;
-    glyph->u0 = (f32)font->pen_x / ATLAS_SIZE;
-    glyph->v0 = (f32)font->pen_y / ATLAS_SIZE;
-    glyph->u1 = (f32)(font->pen_x + bitmap->width) / ATLAS_SIZE;
-    glyph->v1 = (f32)(font->pen_y + bitmap->rows) / ATLAS_SIZE;
+    glyph->width = (f32)bitmap->width * font->scale;
+    glyph->height = (f32)bitmap->rows * font->scale;
+    glyph->left = (f32)slot->bitmap_left * font->scale;
+    glyph->top = font->ascent - (f32)slot->bitmap_top * font->scale;
+    glyph->u0 = (f32)font->pen_x / font->atlas_width;
+    glyph->v0 = (f32)font->pen_y / font->atlas_height;
+    glyph->u1 = (f32)(font->pen_x + bitmap->width) / font->atlas_width;
+    glyph->v1 = (f32)(font->pen_y + bitmap->rows) / font->atlas_height;
 
     font->pen_x += bitmap->width + GLYPH_PADDING;
+    return 0;
+}
+
+/* The table is never full, so the probe always ends. */
+static GlyphSlot *find_slot(GfxFont *font, u32 codepoint)
+{
+    u32 index = codepoint % GLYPH_SLOTS;
+
+    while (font->slots[index].used && font->slots[index].codepoint != codepoint)
+        index = (index + 1) % GLYPH_SLOTS;
+    return &font->slots[index];
 }
 
 const GfxGlyph *gfx_font_glyph(GfxFont *font, u32 codepoint)
 {
-    u32 index = codepoint % GLYPH_SLOTS;
+    GlyphSlot *slot = find_slot(font, codepoint);
 
-    for (u32 probe = 0; probe < GLYPH_SLOTS; probe++) {
-        GlyphSlot *slot = &font->slots[(index + probe) % GLYPH_SLOTS];
+    if (slot->used)
+        return &slot->glyph;
 
-        if (!slot->used) {
-            slot->used = true;
-            slot->codepoint = codepoint;
-            rasterise(font, codepoint, &slot->glyph);
-            return &slot->glyph;
-        }
-        if (slot->codepoint == codepoint)
-            return &slot->glyph;
+    /* CJK text can need more glyphs than one atlas holds, so a full cache starts over. */
+    if (font->slots_used == GLYPH_SLOTS_FULL) {
+        reset_atlas(font);
+        slot = find_slot(font, codepoint);
     }
-    return &font->slots[index].glyph;
+    if (rasterise(font, codepoint, &slot->glyph) != 0) {
+        reset_atlas(font);
+        slot = find_slot(font, codepoint);
+        rasterise(font, codepoint, &slot->glyph);
+    }
+
+    slot->used = true;
+    slot->codepoint = codepoint;
+    font->slots_used++;
+    return &slot->glyph;
 }
 
 GfxTexture *gfx_font_texture(GfxFont *font) { return font->atlas; }

@@ -17,7 +17,7 @@
 #define SHADER_TYPE  "love.Shader"
 #define IMAGE_CACHE  "love.ImageCache"
 
-#define MAX_FONTS 8
+#define MAX_FONTS 16
 #define MAX_UNIFORM_VALUES 16
 
 typedef struct {

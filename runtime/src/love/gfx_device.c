@@ -281,6 +281,14 @@ void gfx_texture_changed(void)
     texture_stale = true;
 }
 
+/* Lets the CPU overwrite memory that queued draws still read. */
+void gfx_wait_idle(void)
+{
+    rsx_ring_make_room(gfx_context);
+    flush_batch();
+    wait_for_rsx();
+}
+
 GfxVertex *gfx_reserve(GfxTexture *texture, u32 vertex_count)
 {
     GfxTexture *wanted = texture != NULL ? texture : white_texture;

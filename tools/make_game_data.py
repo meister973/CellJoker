@@ -17,20 +17,11 @@ from PIL import Image
 
 import texture_cook
 
-LANGUAGES_WITH_LARGE_FONTS = ("ja", "ko", "zh_CN", "zh_TW")
-SHIPPED_FONTS = ("resources/fonts/m6x11plus.ttf", "resources/fonts/NotoSans-Bold.ttf")
 TEXTURE_PREFIX = "resources/textures/"
 
 
 def is_needed(name: str) -> bool:
-    """The other fonts total 63 MB of main RAM, so the languages that need them do not ship."""
-    if name.endswith("/"):
-        return False
-    if name.startswith("localization/"):
-        return name not in [f"localization/{language}.lua" for language in LANGUAGES_WITH_LARGE_FONTS]
-    if name.startswith("resources/fonts/"):
-        return name in SHIPPED_FONTS
-    return True
+    return not name.endswith("/")
 
 
 def output_path(name: str) -> str:

@@ -23,17 +23,6 @@ love.conf({ window = {}, modules = {} })
 
 require 'main'
 
-local set_language = Game.set_language
-
--- The language menu draws each name in that language's font, and some fonts do not ship.
-Game.set_language = function(...)
-    local results = { set_language(...) }
-    for _, language in pairs(G.LANGUAGES) do
-        if not love.filesystem.getInfo('localization/' .. language.key .. '.lua') then language.omit = true end
-    end
-    return unpack(results)
-end
-
 local unlock_everything = require 'love_unlock'
 local show_main_menu = Game.main_menu
 

@@ -55,6 +55,7 @@ int gfx_debug_dump_screen(const char *path);
 GfxVertex *gfx_reserve(GfxTexture *texture, u32 vertex_count);
 void gfx_hold_batch(bool held);
 void gfx_texture_changed(void);
+void gfx_wait_idle(void);
 u32 gfx_draw_calls_last_frame(void);
 
 /* Textures. */

@@ -26,18 +26,17 @@ class SelectionTests(unittest.TestCase):
         self.assertTrue(tool.is_needed("engine/ui.lua"))
         self.assertTrue(tool.is_needed("localization/en-us.lua"))
 
-    def test_keeps_the_languages_that_need_only_small_fonts(self):
-        for language in ("de", "es_419", "es_ES", "fr", "id", "it", "nl", "pl", "pt_BR", "ru"):
+    def test_keeps_every_language(self):
+        for language in ("de", "es_419", "es_ES", "fr", "id", "it", "ja", "ko", "nl", "pl", "pt_BR", "ru", "zh_CN", "zh_TW"):
             self.assertTrue(tool.is_needed(f"localization/{language}.lua"), language)
 
-    def test_drops_the_languages_whose_fonts_do_not_fit(self):
-        for language in ("ja", "ko", "zh_CN", "zh_TW"):
-            self.assertFalse(tool.is_needed(f"localization/{language}.lua"), language)
-
-    def test_keeps_only_the_small_fonts(self):
+    def test_keeps_every_font(self):
         self.assertTrue(tool.is_needed("resources/fonts/m6x11plus.ttf"))
         self.assertTrue(tool.is_needed("resources/fonts/NotoSans-Bold.ttf"))
-        self.assertFalse(tool.is_needed("resources/fonts/NotoSansJP-Bold.ttf"))
+        self.assertTrue(tool.is_needed("resources/fonts/NotoSansJP-Bold.ttf"))
+
+    def test_skips_folder_entries(self):
+        self.assertFalse(tool.is_needed("resources/fonts/"))
 
 
 class BuildTests(unittest.TestCase):
@@ -49,17 +48,17 @@ class BuildTests(unittest.TestCase):
                 handle.write(b"MZ executable bytes")
             with zipfile.ZipFile(game, "a") as archive:
                 archive.writestr("main.lua", "-- game")
-                archive.writestr("localization/ja.lua", "-- skip")
+                archive.writestr("localization/ja.lua", "-- japanese")
                 archive.writestr("resources/textures/2x/Jokers.png", png_bytes())
                 archive.writestr("resources/sounds/win.ogg", b"ogg")
 
             output = os.path.join(folder, "USRDIR")
             written = tool.build(game, output)
 
-            self.assertEqual(written, 3)
+            self.assertEqual(written, 4)
             self.assertTrue(os.path.isfile(os.path.join(output, "main.lua")))
             self.assertTrue(os.path.isfile(os.path.join(output, "resources", "sounds", "win.ogg")))
-            self.assertFalse(os.path.exists(os.path.join(output, "localization", "ja.lua")))
+            self.assertTrue(os.path.isfile(os.path.join(output, "localization", "ja.lua")))
 
             cooked = os.path.join(output, "cooked", "resources", "textures", "2x", "Jokers.rtex")
             with open(cooked, "rb") as handle:

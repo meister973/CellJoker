@@ -44,7 +44,7 @@ Do not share the package. It contains the game.
 | **Sound and music** | A software mixer plays the game's own music and sound effects. |
 | **Saves** | Your run and settings save by themselves. |
 | **The look** | The CRT effect, the swirling background, and the card shaders run on the PS3 graphics chip. |
-| **11 languages** | English, German, Spanish (2 versions), French, Indonesian, Italian, Dutch, Polish, Portuguese, and Russian. |
+| **15 languages** | English, German, Spanish (2 versions), French, Indonesian, Italian, Dutch, Polish, Portuguese, Russian, Japanese, Korean, and Chinese (Simplified and Traditional). |
 | **A pad** | The game plays with a controller. |
 | **No grind** | The main profile has everything unlocked, and the tutorial is off. To start fresh, change to another profile in the game's Profile menu. |
 
@@ -65,7 +65,7 @@ Do not share the package. It contains the game.
 | RPCS3 | The game plays with sound and saves. |
 | Real PS3 | Tested on 2 runs, and it ran fine. Please [open an issue](../../issues) with your result. |
 
-The game runs in 11 languages. Japanese, Korean, and Chinese are not available, because their fonts are too large. This release was tested with Balatro 1.0.1o-FULL.
+This release was tested with Balatro 1.0.1o-FULL.
 
 If something goes wrong, the log is on the PS3 at `/dev_hdd0/tmp/balatro_log.txt`.
 
