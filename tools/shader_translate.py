@@ -20,6 +20,13 @@ COMPONENTS = "xyzw"
 
 TYPE_SIZES = {"number": 1, "float": 1, "bool": 1, "vec2": 2, "vec3": 3, "vec4": 4}
 
+# The hologram's 9x9 glow loop draws on RPCS3 but not on a real PS3, which left the
+# Hologram joker without its figure. Cg keeps those 81 steps as a hardware loop, and
+# ignores its own unroll option, so the loop is written out here instead.
+UNROLLED_SHADERS = ("hologram",)
+
+SYMMETRIC_LOOP = re.compile(r"for\s*\(\s*int\s+(\w+)\s*=\s*-\s*(\w+)\s*;\s*\1\s*<=\s*\2\s*;\s*\+\+\1\s*\)\s*\{")
+
 PRELUDE = """\
 float glsl_mod(float a, float b) { return a - b * floor(a / b); }
 float2 glsl_mod(float2 a, float b) { return a - b * floor(a / b); }
@@ -85,6 +92,8 @@ def translate(name: str, source: str) -> TranslatedShader:
 
     if "effect" not in fragment_code:
         fragment_code += DEFAULT_EFFECT
+    if name in UNROLLED_SHADERS:
+        fragment_code = unroll_loops(fragment_code)
 
     uniforms, fragment_slots, slot_count = _pack(declared, fragment_code)
     return TranslatedShader(
@@ -113,6 +122,41 @@ def shader_table(shaders: list) -> str:
         for uniform in shader.uniforms:
             lines.append(f"{uniform.name} {uniform.slot} {uniform.component} {uniform.size}")
     return "\n".join(lines) + "\n"
+
+
+def unroll_loops(code: str) -> str:
+    """Write out each `for (int i = -n; i <= n; ++i)` as one block per step, inner loops too."""
+    match = SYMMETRIC_LOOP.search(code)
+    while match:
+        name, bound = match.groups()
+        reach = _constant_int(bound, code)
+        body_end = _closing_brace(code, match.end())
+        body = code[match.end():body_end]
+        steps = "".join("{" + re.sub(rf"\b{name}\b", f"({step})", body) + "}" for step in range(-reach, reach + 1))
+        code = code[:match.start()] + steps + code[body_end + 1:]
+        match = SYMMETRIC_LOOP.search(code)
+    return code
+
+
+def _constant_int(bound: str, code: str) -> int:
+    if bound.isdigit():
+        return int(bound)
+    declaration = re.search(rf"\bint\s+{bound}\s*=\s*(\d+)\s*;", code)
+    if declaration is None:
+        raise ShaderTranslateError(f"loop bound {bound} is not a constant")
+    return int(declaration.group(1))
+
+
+def _closing_brace(code: str, start: int) -> int:
+    depth = 1
+    for index in range(start, len(code)):
+        if code[index] == "{":
+            depth += 1
+        elif code[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return index
+    raise ShaderTranslateError("unbalanced brace")
 
 
 def _find_uniforms(code: str) -> list:

@@ -24,7 +24,7 @@ function Invoke-Driver([string]$Driver, [int]$TimeoutSeconds = 280) {
 
 Invoke-Test 'tool unit tests' {
     Push-Location (Join-Path $root 'tools\tests')
-    python -B -m unittest test_cgcomp_full_precision test_texture_cook test_make_game_data
+    python -B -m unittest test_cgcomp_full_precision test_shader_translate test_texture_cook test_make_game_data
     Pop-Location
 }
 Invoke-Test 'love_joystick' { Invoke-ToolchainLua 'tests/joystick/test_love_joystick.lua' }
