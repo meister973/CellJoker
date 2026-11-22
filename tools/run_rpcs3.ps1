@@ -103,18 +103,23 @@ if ($Frames) {
     Remove-Item (Join-Path $hdd 'tmp\frame_*.ppm') -ErrorAction SilentlyContinue
     Set-Content -Path $dumpList -Value ($Frames -join ' ')
     $hiddenConfig = Join-Path $runDir 'hidden.yml'
-    Set-Content -Path $hiddenConfig -Value "Video:`n  Renderer: Vulkan`n  Write Color Buffers: true`n  Resolution: $Resolution`nAudio:`n  Renderer: Null`nMiscellaneous:`n  Start games in fullscreen mode: false`n"
+    Set-Content -Path $hiddenConfig -Value "Video:`n  Renderer: Vulkan`n  Write Color Buffers: true`n  Resolution: $Resolution`nAudio:`n  Renderer: Null`n  Master Volume: 0`nMiscellaneous:`n  Start games in fullscreen mode: false`n"
     $bootArguments += @('--config', "`"$hiddenConfig`"")
     if ($InputConfig) { $bootArguments += @('--input-config', $InputConfig) }
 }
 if (-not $Visible) {
     $headlessConfig = Join-Path $runDir 'headless.yml'
-    Set-Content -Path $headlessConfig -Value "Video:`n  Renderer: Null`nAudio:`n  Renderer: Null`n  Dump to file: $($DumpAudio.IsPresent.ToString().ToLower())`n"
+    # RPCS3 ignores Renderer here and plays through its usual output. A WAV dump is taken after
+    # Master Volume, so a dump run keeps full volume and relies on the Windows mute below.
+    $volume = if ($DumpAudio) { 100 } else { 0 }
+    Set-Content -Path $headlessConfig -Value "Video:`n  Renderer: Null`nAudio:`n  Renderer: Null`n  Master Volume: $volume`n  Dump to file: $($DumpAudio.IsPresent.ToString().ToLower())`n"
     $bootArguments = @('--headless', '--config', "`"$headlessConfig`"")
 }
 # A marker left in the previous run's log must not count as this run's result.
 Remove-Item $ttyLog -ErrorAction SilentlyContinue
 $process = Start-Process -FilePath (Join-Path $rpcs3Dir 'rpcs3.exe') -ArgumentList ($bootArguments + "`"$elf`"") -PassThru -WindowStyle Hidden
+# Tests never play sound on the speakers; tools/play.ps1 is the way to listen.
+Start-Process -FilePath 'pwsh' -WindowStyle Hidden -ArgumentList @('-NoProfile', '-File', "`"$(Join-Path $PSScriptRoot 'mute_process_audio.ps1')`"", '-ProcessId', $process.Id, '-LogPath', "`"$(Join-Path $runDir 'mute.log')`"") | Out-Null
 $found = $false
 $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
 
