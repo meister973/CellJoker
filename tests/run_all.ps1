@@ -29,6 +29,7 @@ Invoke-Test 'tool unit tests' {
 }
 Invoke-Test 'love_joystick' { Invoke-ToolchainLua 'tests/joystick/test_love_joystick.lua' }
 Invoke-Test 'love_thread' { Invoke-ToolchainLua 'tests/joystick/test_love_thread.lua' }
+Invoke-Test 'frame_timing' { Invoke-ToolchainLua 'tests/joystick/test_frame_timing.lua' }
 
 Invoke-Test 'lua behavior' { pwsh -NoProfile -File (Join-Path $root 'tests\lua_compat\run.ps1') }
 Invoke-Test 'shader probe' { pwsh -NoProfile -File (Join-Path $root 'tests\shader_probe\run.ps1') }

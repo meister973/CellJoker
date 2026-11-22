@@ -26,6 +26,12 @@ require 'main'
 -- After main: the fixes wrap engine classes that main loads.
 require 'game_fixes' ()
 
+-- The log shows where a frame's time goes. update_ms includes gc_ms, the game's own GC budget.
+local timing = require 'frame_timing' (love_platform.time, { 'update', 'gc', 'draw', 'present' })
+love.update = timing.wrap('update', love.update)
+love.draw = timing.wrap('draw', love.draw)
+nuGC = timing.wrap('gc', nuGC)
+
 local unlock_everything = require 'love_unlock'
 local show_main_menu = Game.main_menu
 
@@ -51,7 +57,7 @@ local function requested_dump_frames()
 end
 
 local dump_frames = requested_dump_frames()
-local native_present = love_graphics_native.present
+local native_present = timing.wrap('present', love_graphics_native.present)
 
 love_graphics_native.present = function()
     if dump_frames[frame] then
@@ -73,13 +79,15 @@ end
 
 local function log_progress()
     frame = frame + 1
+    timing.end_frame()
     if frame % 300 == 0 then
-        write_log(string.format('frame=%d time=%.1f heap_kb=%d draw_calls=%d state=%s pads=%d underruns=%d\n', frame,
+        local frame_times = timing.report()
+        write_log(string.format('frame=%d time=%.1f heap_kb=%d draw_calls=%d state=%s pads=%d underruns=%d %s\n', frame,
             love.timer.getTime(), collectgarbage('count'), love.graphics.drawCalls(), tostring(G and G.STATE),
-            love.joystick.getJoystickCount(), love_audio_native.underruns()))
-        io.write(string.format('frame=%d heap_kb=%d draw_calls=%d state=%s pads=%d underruns=%d\n', frame,
+            love.joystick.getJoystickCount(), love_audio_native.underruns(), frame_times))
+        io.write(string.format('frame=%d heap_kb=%d draw_calls=%d state=%s pads=%d underruns=%d %s\n', frame,
             collectgarbage('count'), love.graphics.drawCalls(), tostring(G and G.STATE),
-            love.joystick.getJoystickCount(), love_audio_native.underruns()))
+            love.joystick.getJoystickCount(), love_audio_native.underruns(), frame_times))
         io.flush()
     end
 end

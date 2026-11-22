@@ -9,6 +9,7 @@
 #include <lua.h>
 #include <lauxlib.h>
 
+#include <ppu-asm.h>
 #include <ppu-lv2.h>
 #include <sys/file.h>
 #include <sys/systime.h>
@@ -32,13 +33,13 @@ bool love_platform_poll_exit(void)
     return exit_requested;
 }
 
+/* The time base register, not sysGetCurrentTime: nuGC reads the clock between GC steps, up to
+ * 1000 times a frame, and each system call spends its time budget on the call itself. */
+static double timebase_seconds_per_tick;
+
 static int platform_time(lua_State *L)
 {
-    u64 seconds = 0;
-    u64 nanoseconds = 0;
-
-    sysGetCurrentTime(&seconds, &nanoseconds);
-    lua_pushnumber(L, (double)seconds + (double)nanoseconds * 1e-9);
+    lua_pushnumber(L, (double)__gettime() * timebase_seconds_per_tick);
     return 1;
 }
 
@@ -119,6 +120,7 @@ static const luaL_Reg platform_library[] = {
 
 int luaopen_love_platform(lua_State *L)
 {
+    timebase_seconds_per_tick = 1.0 / (double)sysGetTimebaseFrequency();
     sysUtilRegisterCallback(SYSUTIL_EVENT_SLOT0, on_system_event, NULL);
     luaL_register(L, "love_platform", platform_library);
     lua_pad_register(L);

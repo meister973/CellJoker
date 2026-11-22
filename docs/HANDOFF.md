@@ -190,3 +190,9 @@ same rounds play with the same saves and draw calls, and Lua's own test suite gi
 Measured and rejected: copying inherited methods into each class saved 2%, because almost every
 lookup already hits in the first table. Also, a later change to a parent class then does not reach
 its children.
+
+Every 300 frames, `balatro_log.txt` gives the average and worst frame time, and the average time per
+frame in update, GC, draw and present (`runtime/lua/frame_timing.lua`). Update includes the GC
+time. If present is large, the frame waits for the RSX. If update and draw are large, the PPU is
+the limit. The clock reads the time base register, because the game's GC step reads the clock up
+to 1000 times a frame, and a system call each time spent the GC budget on the calls.
