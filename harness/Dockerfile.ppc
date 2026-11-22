@@ -1,0 +1,57 @@
+# Big-endian harness: the same build as Dockerfile, cross-compiled for 32-bit PowerPC
+# Linux and run under qemu-ppc. 32-bit big-endian is the closest Linux match to the PS3
+# PPU's ILP32 big-endian ABI. QEMU timings mean nothing; the output and instruction
+# counts must match the host run exactly, or something depends on byte order.
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        make \
+        patch \
+        gcc-powerpc-linux-gnu \
+        libc6-dev-powerpc-cross \
+        qemu-user-static \
+    && rm -rf /var/lib/apt/lists/*
+
+# -ffp-contract=off as in the PS3 build: PowerPC GCC fuses a*b+c by default, x86-64 does not.
+ENV CC="powerpc-linux-gnu-gcc -ffp-contract=off"
+ENV TARGET_ROOT=/opt/ppc
+
+ARG ZLIB_VERSION=1.3.1
+ARG ZLIB_SHA256=9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23
+
+RUN set -eux; \
+    curl -fsSL -o /tmp/zlib.tar.gz "https://zlib.net/fossils/zlib-${ZLIB_VERSION}.tar.gz"; \
+    echo "${ZLIB_SHA256}  /tmp/zlib.tar.gz" | sha256sum -c -; \
+    mkdir -p /tmp/zlib; \
+    tar -xzf /tmp/zlib.tar.gz -C /tmp/zlib --strip-components=1; \
+    cd /tmp/zlib; \
+    CHOST=powerpc-linux-gnu ./configure --static --prefix="$TARGET_ROOT"; \
+    make -j"$(nproc)"; \
+    make install; \
+    rm -rf /tmp/zlib /tmp/zlib.tar.gz
+
+# Same version and hash as docker/Dockerfile. run.sh builds it with the repository's patch.
+ARG LUA_VERSION=5.1.5
+ARG LUA_SHA256=2640fc56a795f29d28ef15e13c34a47e223960b0240e8cb0a82d9b0738695333
+
+RUN set -eux; \
+    curl -fsSL -o /opt/lua-5.1.5.tar.gz "https://www.lua.org/ftp/lua-${LUA_VERSION}.tar.gz"; \
+    echo "${LUA_SHA256}  /opt/lua-5.1.5.tar.gz" | sha256sum -c -
+
+# A broken cross toolchain or emulator fails the image build, not a later run.
+RUN set -eux; \
+    printf '#include <stdio.h>\nint main(void){unsigned x=1;printf("big_endian=%%d\\n",*(unsigned char*)&x==0);return 0;}\n' > /tmp/e.c; \
+    $CC -static -o /tmp/e /tmp/e.c; \
+    qemu-ppc-static /tmp/e | grep -q 'big_endian=1'; \
+    rm -f /tmp/e /tmp/e.c
+
+ENV ZLIB_ROOT=/opt/ppc
+ENV LINK_FLAGS=-static
+ENV RUNNER=qemu-ppc-static
+ENV TARGET_NAME=ppc
+
+WORKDIR /work
