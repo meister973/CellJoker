@@ -59,7 +59,7 @@ pwsh -NoProfile -File tests/run_all.ps1
 Build the Windows tool after a build. It goes to `dist/make_pkg`, and it holds no game content:
 
 ```powershell
-docker run --rm -v "${PWD}:/work" -w /work balatro-ps3dev:2 sh tools/release_runtime.sh
+docker run --rm -v "${PWD}:/work" -w /work balatro-ps3dev:4 sh tools/release_runtime.sh
 docker run --rm -v "${PWD}:/work" -w /work ubuntu:22.04 sh tools/release_windows_tools.sh
 ```
 
@@ -157,4 +157,36 @@ to the correct position at the next audible volume.
    save. The save compresses on the main thread, because workers are coroutines.
 2. Play a full run to ante 8, and fix what it finds. The scripts have not won a run or used a
    joker's effect on purpose.
-3. The Lua heap grew from 10 MB to 15 MB over the cards test. The cause is not known.
+3. Measure the frame rate of a long run on a real PS3, with `runtime/lua/game_fixes.lua`.
+
+## Long runs
+
+The shipped game leaks UI objects in every round, and the leak is the same on LuaJIT. Each
+leaked object is updated and drawn in every frame, so before the fix a run slowed down round by
+round. From round 2 to round 35, the Lua work per frame grew from 277k to 576k instructions.
+Over the same rounds, the live heap grew from 13 MB to 47 MB. `runtime/lua/game_fixes.lua` fixes
+three causes, and with it both numbers stay flat. `harness/README.md` explains the measurement
+and the leak test.
+
+The save is not the cause. It costs about 135k instructions and does not grow.
+
+Lua is built with `-ffp-contract=off`. Without the flag, ppu-gcc fuses `a*b+c` in the Lua VM.
+Then `%` rounds differently from LuaJIT on x86, and a seed plays a different run than on PC.
+RPCS3 does not show the difference. The QEMU PowerPC build in `harness/` shows it.
+
+## Frame rate
+
+A tester reports that a real PS3 runs below 30 fps from the start, and that the game is playable.
+In the host runner (`harness/`), a frame in a round costs about 250k Lua instructions. Update uses
+64% of them, and draw uses the rest. On this PC, the host build needs about 4 ms per frame. A PPU
+runs this interpreter many times slower, so Lua is the likely limit. A real PS3 must confirm this.
+
+Callgrind showed that 39% of the interpreter's machine instructions read table fields, through three
+calls per read. `docker/lua/fast_table_access.patch` does the common reads and writes inside the VM
+loop. If a metamethod can apply, the fast path does nothing and the normal path runs, so the
+results are the same. The machine instructions per frame went down by 23%. With the patch, the
+same rounds play with the same saves and draw calls, and Lua's own test suite gives the same output.
+
+Measured and rejected: copying inherited methods into each class saved 2%, because almost every
+lookup already hits in the first table. Also, a later change to a parent class then does not reach
+its children.
