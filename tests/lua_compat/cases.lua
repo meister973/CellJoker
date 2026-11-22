@@ -52,4 +52,19 @@ record('format table ok', (pcall(string.format, '%s', {})))
 record('format padded', string.format('%-5s|', 'ab'))
 record('format huge', string.format('%d', 3000000000))
 
+-- The game's pseudohash (functions/misc_functions.lua), copied as shipped. Every seeded roll
+-- goes through it, and a fused multiply-add in Lua's % changes its result on the Cell.
+local function pseudohash(str)
+    local num = 1
+    for i = #str, 1, -1 do
+        num = ((1.1239285023/num)*string.byte(str, i)*math.pi + math.pi*i)%1
+    end
+    return num
+end
+for _, key in ipairs({ 'PS3TEST1', 'shuffle', 'cashout1', 'rarity1', 'Joker4sho1', 'boss' }) do
+    record('pseudohash ' .. key, pseudohash(key))
+end
+record('mod 7.3 1', 7.3 % 1)
+record('mod -5.25 2', -5.25 % 2)
+
 return out

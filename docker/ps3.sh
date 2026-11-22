@@ -8,7 +8,7 @@
 set -eu
 
 PROJECT_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-IMAGE=${PS3_IMAGE:-balatro-ps3dev:2}
+IMAGE=${PS3_IMAGE:-balatro-ps3dev:4}
 FOLDER=$1
 shift
 

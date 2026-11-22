@@ -15,7 +15,7 @@ function Invoke-Test([string]$Name, [scriptblock]$Test) {
 }
 
 function Invoke-ToolchainLua([string]$File) {
-    docker run --rm -v "${root}:/work" -w /work balatro-ps3dev:2 lua5.1 $File
+    docker run --rm -v "${root}:/work" -w /work balatro-ps3dev:4 lua5.1 $File
 }
 
 function Invoke-Driver([string]$Driver, [int]$TimeoutSeconds = 280) {

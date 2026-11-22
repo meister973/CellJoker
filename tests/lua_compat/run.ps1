@@ -1,7 +1,7 @@
 # Differential test: real LuaJIT in the toolchain image against our Lua 5.1 on the Cell.
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$image = 'balatro-ps3dev:2'
+$image = $env:PS3_IMAGE ?? 'balatro-ps3dev:4'
 $project = Join-Path $root 'lua-compat-test'
 $generated = Join-Path $project 'generated'
 New-Item -ItemType Directory -Force $generated | Out-Null

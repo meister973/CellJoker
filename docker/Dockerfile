@@ -62,26 +62,36 @@ RUN set -eux; \
 
 # Lua 5.1, cross-built for the PPU and installed as a portlib.
 #
-# Vanilla interpreter on purpose: LuaJIT's PowerPC path is not something this
+# -ffp-contract=off: GCC for PowerPC fuses a*b+c into one fmadd with a single rounding, and
+# x86 LuaJIT does not. Fused, Lua's % (a - floor(a/b)*b) rounds differently, so the game's
+# pseudohash gives a different value and a seed plays a different run than on PC.
+#
+# Lua 5.1 semantics on purpose: LuaJIT's PowerPC path is not something this
 # project can depend on, and the game only needs 5.1 semantics. The standalone
 # interpreter and luac are excluded — we embed the library and supply our own main.
+#
+# lua/fast_table_access.patch reads and writes table fields in the VM loop, without
+# three function calls each. Results are the same. It removes about 23% of the
+# interpreter's work per frame in the harness (harness/README.md).
 ARG LUA_VERSION=5.1.5
 ARG LUA_SHA256=2640fc56a795f29d28ef15e13c34a47e223960b0240e8cb0a82d9b0738695333
+COPY lua/fast_table_access.patch /tmp/fast_table_access.patch
 
 RUN set -eux; \
     curl -fsSL -o /tmp/lua.tar.gz "https://www.lua.org/ftp/lua-${LUA_VERSION}.tar.gz"; \
     echo "${LUA_SHA256}  /tmp/lua.tar.gz" | sha256sum -c -; \
     mkdir -p /tmp/lua; \
     tar -xzf /tmp/lua.tar.gz -C /tmp/lua --strip-components=1; \
+    git -C /tmp/lua apply /tmp/fast_table_access.patch; \
     cd /tmp/lua/src; \
     for f in *.c; do \
         case "$f" in lua.c|luac.c|print.c) continue ;; esac; \
-        ppu-gcc -mcpu=cell -O2 -Wall -c "$f" -o "${f%.c}.o"; \
+        ppu-gcc -mcpu=cell -O2 -Wall -ffp-contract=off -c "$f" -o "${f%.c}.o"; \
     done; \
     ppu-ar rcu liblua.a *.o; \
     mkdir -p /usr/local/ps3dev/portlibs/ppu/lib /usr/local/ps3dev/portlibs/ppu/include; \
     cp liblua.a /usr/local/ps3dev/portlibs/ppu/lib/; \
     cp lua.h luaconf.h lualib.h lauxlib.h /usr/local/ps3dev/portlibs/ppu/include/; \
-    rm -rf /tmp/lua /tmp/lua.tar.gz
+    rm -rf /tmp/lua /tmp/lua.tar.gz /tmp/fast_table_access.patch
 
 WORKDIR /work

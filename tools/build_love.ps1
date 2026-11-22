@@ -1,6 +1,6 @@
 # Builds love-ps3 from clean, cooks the textures if needed, and syncs to RPCS3's HDD.
 $root = Split-Path -Parent $PSScriptRoot
-$image = 'balatro-ps3dev:2'
+$image = 'balatro-ps3dev:4'
 
 docker run --rm -v "${root}:/work" -w /work/love-ps3 $image sh -c 'rm -rf build generated; python3 -B ../tools/shader_build.py generated/shaders ../game/resources/shaders ../tests/shader_probe && make 2>&1 | grep -E " error |Error " ; test -f build/love-ps3.elf'
 if ($LASTEXITCODE -ne 0) { Write-Output 'build failed'; exit 1 }

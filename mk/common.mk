@@ -19,7 +19,7 @@ APPID     ?= BLTR00001
 CONTENTID := UP0001-$(APPID)_00-0000000000000000
 
 # Recursive on purpose: $@ and INCLUDE are only meaningful at use time in the sub-make.
-CFLAGS    = -O2 -Wall -mcpu=cell -std=gnu99 $(MACHDEP) $(INCLUDE)
+CFLAGS    = -O2 -Wall -mcpu=cell -ffp-contract=off -std=gnu99 $(MACHDEP) $(INCLUDE)
 LDFLAGS   = $(MACHDEP) -Wl,-Map,$(notdir $@).map
 
 ifneq ($(BUILD),$(notdir $(CURDIR)))

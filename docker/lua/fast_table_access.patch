@@ -1,0 +1,112 @@
+--- a/src/lvm.c
++++ b/src/lvm.c
+@@ -32,6 +32,64 @@
+ #define MAXTAGLOOP	100
+ 
+ 
++/* CellJoker: fast paths for the table reads and writes that the game does most. Each one
++** gives the same result as the full path, which it skips: luaV_gettable -> luaH_get ->
++** luaH_getstr is three calls per field read. NULL means "take the full path".
++*/
++#if defined(__GNUC__)
++#define fast_inline __attribute__((always_inline)) static inline
++#else
++#define fast_inline static
++#endif
++
++/* The slot of a string key in the hash part, or NULL if the key is absent. */
++fast_inline TValue *fast_strslot (Table *h, TString *key) {
++  Node *n = gnode(h, lmod(key->tsv.hash, sizenode(h)));
++  do {
++    if (ttisstring(gkey(n)) && rawtsvalue(gkey(n)) == key)
++      return gval(n);
++    n = gnext(n);
++  } while (n);
++  return NULL;
++}
++
++/* A nil read is final only when no __index can apply, as in luaV_gettable. */
++fast_inline const TValue *fast_result (Table *h, const TValue *slot) {
++  if (slot != NULL && !ttisnil(slot)) return slot;
++  return h->metatable == NULL ? luaO_nilobject : NULL;
++}
++
++fast_inline const TValue *fast_getstr (Table *h, TString *key) {
++  return fast_result(h, fast_strslot(h, key));
++}
++
++/* A string key, or an integer key in the array part, as luaH_get finds them. */
++fast_inline const TValue *fast_get (const TValue *t, const TValue *key) {
++  Table *h;
++  if (!ttistable(t)) return NULL;
++  h = hvalue(t);
++  if (ttisstring(key)) return fast_getstr(h, rawtsvalue(key));
++  if (ttisnumber(key)) {
++    int k;
++    lua_Number n = nvalue(key);
++    lua_number2int(k, n);
++    if (luai_numeq(cast_num(k), n) &&
++        cast(unsigned int, k-1) < cast(unsigned int, h->sizearray))
++      return fast_result(h, &h->array[k-1]);
++  }
++  return NULL;
++}
++
++/* An existing, non-nil string field: luaV_settable's first case. */
++fast_inline TValue *fast_setslot (const TValue *t, const TValue *key) {
++  TValue *slot;
++  if (!ttistable(t) || !ttisstring(key)) return NULL;
++  slot = fast_strslot(hvalue(t), rawtsvalue(key));
++  return (slot != NULL && !ttisnil(slot)) ? slot : NULL;
++}
++
++
++
+ const TValue *luaV_tonumber (const TValue *obj, TValue *n) {
+   lua_Number num;
+   if (ttisnumber(obj)) return obj;
+@@ -432,12 +490,16 @@
+       case OP_GETGLOBAL: {
+         TValue g;
+         TValue *rb = KBx(i);
+-        sethvalue(L, &g, cl->env);
++        const TValue *res = fast_getstr(cl->env, rawtsvalue(rb));
+         lua_assert(ttisstring(rb));
++        if (res) { setobj2s(L, ra, res); continue; }
++        sethvalue(L, &g, cl->env);
+         Protect(luaV_gettable(L, &g, rb, ra));
+         continue;
+       }
+       case OP_GETTABLE: {
++        const TValue *res = fast_get(RB(i), RKC(i));
++        if (res) { setobj2s(L, ra, res); continue; }
+         Protect(luaV_gettable(L, RB(i), RKC(i), ra));
+         continue;
+       }
+@@ -455,6 +517,15 @@
+         continue;
+       }
+       case OP_SETTABLE: {
++        TValue *slot = fast_setslot(ra, RKB(i));
++        if (slot) {
++          Table *h = hvalue(ra);
++          TValue *rc = RKC(i);
++          setobj2t(L, slot, rc);
++          h->flags = 0;
++          luaC_barriert(L, h, rc);
++          continue;
++        }
+         Protect(luaV_settable(L, ra, RKB(i), RKC(i)));
+         continue;
+       }
+@@ -467,7 +538,10 @@
+       }
+       case OP_SELF: {
+         StkId rb = RB(i);
++        const TValue *res;
+         setobjs2s(L, ra+1, rb);
++        res = fast_get(rb, RKC(i));
++        if (res) { setobj2s(L, ra, res); continue; }
+         Protect(luaV_gettable(L, rb, RKC(i), ra));
+         continue;
+       }
