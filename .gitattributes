@@ -1,0 +1,6 @@
+# Files that run or apply inside Linux containers keep LF on every checkout.
+*.sh text eol=lf
+*.patch text eol=lf
+Dockerfile* text eol=lf
+*.mk text eol=lf
+Makefile text eol=lf
