@@ -23,6 +23,9 @@ love.conf({ window = {}, modules = {} })
 
 require 'main'
 
+-- After main: the fixes wrap engine classes that main loads.
+require 'game_fixes' ()
+
 local unlock_everything = require 'love_unlock'
 local show_main_menu = Game.main_menu
 
