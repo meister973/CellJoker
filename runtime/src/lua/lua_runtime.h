@@ -10,5 +10,6 @@ void lua_runtime_open(lua_State *L);
 int luaopen_bit(lua_State *L);
 int luaopen_luajit_compat(lua_State *L);
 int luaopen_game_native(lua_State *L);
+void game_native_register_move(lua_State *L);
 
 #endif

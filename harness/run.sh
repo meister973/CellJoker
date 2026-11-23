@@ -44,6 +44,7 @@ $CC -O2 -g -Wall $HARNESS_CFLAGS $LINK_FLAGS -o "$BUILD/harness" \
     /work/runtime/src/lua/bit.c \
     /work/runtime/src/lua/luajit_compat.c \
     /work/runtime/src/lua/game_native.c \
+    /work/runtime/src/lua/moveable_native.c \
     /work/runtime/src/love/lua_data.c \
     "$LUA_SRC"/*.o -L"$ZLIB_ROOT/lib" -lz -lm
 
@@ -53,6 +54,7 @@ cp -R /game/. "$INSTALL"
 cp /work/runtime/lua/*.lua "$INSTALL"
 cp /work/harness/late_run_driver.lua "${INSTALL}play_driver.lua"
 cp /work/harness/heap_census.lua "$INSTALL"
+cp /work/harness/state_dump.lua "$INSTALL"
 # HARNESS_NO_FIXES=1 measures the game without runtime/lua/game_fixes.lua, as a baseline.
 if [ "${HARNESS_NO_FIXES:-0}" = 1 ]; then echo 'return function() end' > "${INSTALL}game_fixes.lua"; fi
 

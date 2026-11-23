@@ -197,7 +197,7 @@ time. If present is large, the frame waits for the RSX. If update and draw are l
 the limit. The clock reads the time base register, because the game's GC step reads the clock up
 to 1000 times a frame, and a system call each time spent the GC budget on the calls.
 
-Two of the game's hot functions run in C. They read the same fields, and do the same arithmetic in
+Three of the game's hot functions run in C. They read the same fields, and do the same arithmetic in
 the same order, as the Lua versions:
 
 - `prep_draw` (`runtime/src/love/lua_prep_draw.c`) sets the transform for each drawn object. In
@@ -207,10 +207,18 @@ the same order, as the Lua versions:
   about 160 times a frame. With `HARNESS_COMPARE_GAME=1`, the host runner calls both versions on
   every call. A run to ante 5 compared 3.1 million calls with no difference, and the PPC runner gave
   the same result. In the host runner, the Lua instructions per frame went down by about 10%.
+- `Moveable:move` (`runtime/src/lua/moveable_native.c`) eases every object toward its target
+  position each frame. It calls the game's Lua methods for the rare paths: a changed alignment,
+  glue, `lr_clamp`, juice and `get_major`. It changes the objects that it moves, so its two versions
+  cannot run on one call. `HARNESS_STATE_DUMP` writes the transforms of every object every 30
+  frames, and a run with `HARNESS_LUA_GAME=1` must give the same file as a run with the C
+  versions. The files were equal on the host to ante 4 and on the PPC runner to ante 2. The Lua
+  instructions per frame went down from about 230k to about 167k.
 
-Both look up their field names through upvalues. A C function that calls `lua_getfield` hashes the
+All three look up their field names through upvalues. A C function that calls `lua_getfield` hashes the
 key string each time, and that made the first `prep_draw` in C only 16% faster than the Lua one.
 
 Measured per function in the host runner, with the instruction counter: `Moveable:move` is about 31%
 of a frame's Lua instructions, `UIElement:draw_self` 20%, `Node:collides_with_point` 9% and
-`prep_draw` 5%. The first two call back into much more game code, so a C version is a larger job.
+`prep_draw` 5%, before these ports. `UIElement:draw_self` calls back into much more game code, so a
+C version of it is a larger job.

@@ -13,6 +13,7 @@ local CALLGRIND_FRAMES = tonumber(os.getenv('HARNESS_CALLGRIND_FRAMES') or '') o
 
 -- HARNESS_CENSUS=1 walks the heap after each round, which is slow but names what grows.
 local census = os.getenv('HARNESS_CENSUS') == '1' and dofile(INSTALL_ROOT .. 'heap_census.lua') or nil
+local state_dump = dofile(INSTALL_ROOT .. 'state_dump.lua')
 local last_snapshot
 
 
@@ -303,6 +304,7 @@ if os.getenv('HARNESS_BUY') == '0' then buy_jokers = function() return false end
 function PLAY_DRIVER()
     frame = frame + 1
     measure_frame()
+    state_dump(frame)
     if frame > FRAME_LIMIT then finish('frame_limit') end
     if frame == CALLGRIND_FROM then harness_native.callgrind(true) end
     if CALLGRIND_FROM and frame == CALLGRIND_FROM + CALLGRIND_FRAMES then

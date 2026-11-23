@@ -1,5 +1,5 @@
--- Puts the C versions of hot engine functions (runtime/src/lua/game_native.c) in place of the
--- game's Lua ones. On the host runner, HARNESS_LUA_GAME=1 keeps the Lua versions, and
+-- Puts the C versions of hot engine functions (runtime/src/lua/game_native.c and
+-- moveable_native.c) in place of the game's Lua ones. On the host runner, HARNESS_LUA_GAME=1 keeps the Lua versions, and
 -- HARNESS_COMPARE_GAME=1 runs both on every call and stops the run at the first difference.
 local COMPARE_REPORT_EVERY = 100000
 
@@ -29,4 +29,7 @@ end
 return function()
     Node.collides_with_point = choose('collides_with_point', Node.collides_with_point,
         game_native.collides_with_point)
+    -- move changes the objects it moves, so its two versions cannot run on one call. The host
+    -- runner's HARNESS_STATE_DUMP compares a whole run of each instead (harness/state_dump.lua).
+    if os.getenv('HARNESS_LUA_GAME') ~= '1' then Moveable.move = game_native.move end
 end
