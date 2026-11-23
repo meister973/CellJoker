@@ -50,7 +50,7 @@ void write_vertex(GfxVertex *vertex, const Affine *m, f32 x, f32 y, f32 u, f32 v
     vertex->a = color[3];
 }
 
-static int g_push(lua_State *L)
+int graphics_push(lua_State *L)
 {
     if (transform_top + 1 >= TRANSFORM_STACK_DEPTH)
         return luaL_error(L, "love.graphics.push: stack overflow");
@@ -76,34 +76,27 @@ static int g_origin(lua_State *L)
     return 0;
 }
 
-static int g_translate(lua_State *L)
+void graphics_translate(f32 x, f32 y)
 {
     Affine *m = &transform_stack[transform_top];
-    f32 x = (f32)luaL_checknumber(L, 1);
-    f32 y = (f32)luaL_checknumber(L, 2);
 
     m->e += m->a * x + m->c * y;
     m->f += m->b * x + m->d * y;
-    return 0;
 }
 
-static int g_scale(lua_State *L)
+void graphics_scale(f32 sx, f32 sy)
 {
     Affine *m = &transform_stack[transform_top];
-    f32 sx = (f32)luaL_checknumber(L, 1);
-    f32 sy = (f32)luaL_optnumber(L, 2, sx);
 
     m->a *= sx;
     m->b *= sx;
     m->c *= sy;
     m->d *= sy;
-    return 0;
 }
 
-static int g_rotate(lua_State *L)
+void graphics_rotate(f32 angle)
 {
     Affine *m = &transform_stack[transform_top];
-    f32 angle = (f32)luaL_checknumber(L, 1);
     f32 cosine = cosf(angle);
     f32 sine = sinf(angle);
     Affine rotated = *m;
@@ -113,7 +106,42 @@ static int g_rotate(lua_State *L)
     rotated.c = m->c * cosine - m->a * sine;
     rotated.d = m->d * cosine - m->b * sine;
     *m = rotated;
+}
+
+static int g_translate(lua_State *L)
+{
+    f32 x = (f32)luaL_checknumber(L, 1);
+    f32 y = (f32)luaL_checknumber(L, 2);
+
+    graphics_translate(x, y);
     return 0;
+}
+
+static int g_scale(lua_State *L)
+{
+    f32 sx = (f32)luaL_checknumber(L, 1);
+    f32 sy = (f32)luaL_optnumber(L, 2, sx);
+
+    graphics_scale(sx, sy);
+    return 0;
+}
+
+static int g_rotate(lua_State *L)
+{
+    graphics_rotate((f32)luaL_checknumber(L, 1));
+    return 0;
+}
+
+/* LÖVE's love.graphics.transformPoint: where the current transform puts (x, y). */
+static int g_transformPoint(lua_State *L)
+{
+    const Affine *m = &transform_stack[transform_top];
+    f32 x = (f32)luaL_checknumber(L, 1);
+    f32 y = (f32)luaL_checknumber(L, 2);
+
+    lua_pushnumber(L, m->a * x + m->c * y + m->e);
+    lua_pushnumber(L, m->b * x + m->d * y + m->f);
+    return 2;
 }
 
 void read_color_table(lua_State *L, int index, f32 *color)
@@ -371,12 +399,13 @@ static int g_debugDumpScreen(lua_State *L)
 
 static const luaL_Reg graphics_library[] = {
     { "debugDumpScreen", g_debugDumpScreen },
-    { "push",         g_push         },
+    { "push",         graphics_push  },
     { "pop",          g_pop          },
     { "origin",       g_origin       },
     { "translate",    g_translate    },
     { "scale",        g_scale        },
     { "rotate",       g_rotate       },
+    { "transformPoint", g_transformPoint },
     { "setColor",     g_setColor     },
     { "clear",        g_clear        },
     { "setLineWidth", g_setLineWidth },
@@ -405,5 +434,6 @@ int luaopen_love_graphics(lua_State *L)
 
     luaL_register(L, "love_graphics_native", graphics_library);
     lua_graphics_register_objects(L);
+    lua_graphics_register_prep_draw(L);
     return 1;
 }

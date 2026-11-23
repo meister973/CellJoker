@@ -44,10 +44,12 @@ function PLAY_DRIVER()
 
     if G.CONTROLLER.locked or G.STATE_COMPLETE == false then return end
 
+    -- select_blind sets facing_blind at once and queues events that use G.blind_select. A second
+    -- press before they run queues one more, which runs after G.blind_select is gone.
     if G.STATE == STATES.BLIND_SELECT and G.blind_select_opts then
         local option = G.blind_select_opts[string.lower(G.GAME.blind_on_deck)]
         local button = option and option:get_UIE_by_ID('select_blind_button')
-        if button then
+        if button and not G.GAME.facing_blind then
             G.FUNCS.select_blind(button)
             next_action = frame + 120
         end

@@ -196,3 +196,21 @@ frame in update, GC, draw and present (`runtime/lua/frame_timing.lua`). Update i
 time. If present is large, the frame waits for the RSX. If update and draw are large, the PPU is
 the limit. The clock reads the time base register, because the game's GC step reads the clock up
 to 1000 times a frame, and a system call each time spent the GC budget on the calls.
+
+Two of the game's hot functions run in C. They read the same fields, and do the same arithmetic in
+the same order, as the Lua versions:
+
+- `prep_draw` (`runtime/src/love/lua_prep_draw.c`) sets the transform for each drawn object. In
+  RPCS3, `tests/prep_draw` compares it with the game's own version on 5000 random cases, and the
+  transforms must be equal bit for bit. It runs in about half the time of the Lua version.
+- `Node:collides_with_point` (`runtime/src/lua/game_native.c`) tests the cursor against each node,
+  about 160 times a frame. With `HARNESS_COMPARE_GAME=1`, the host runner calls both versions on
+  every call. A run to ante 5 compared 3.1 million calls with no difference, and the PPC runner gave
+  the same result. In the host runner, the Lua instructions per frame went down by about 10%.
+
+Both look up their field names through upvalues. A C function that calls `lua_getfield` hashes the
+key string each time, and that made the first `prep_draw` in C only 16% faster than the Lua one.
+
+Measured per function in the host runner, with the instruction counter: `Moveable:move` is about 31%
+of a frame's Lua instructions, `UIElement:draw_self` 20%, `Node:collides_with_point` 9% and
+`prep_draw` 5%. The first two call back into much more game code, so a C version is a larger job.

@@ -34,6 +34,7 @@ Invoke-Test 'frame_timing' { Invoke-ToolchainLua 'tests/joystick/test_frame_timi
 Invoke-Test 'lua behavior' { pwsh -NoProfile -File (Join-Path $root 'tests\lua_compat\run.ps1') }
 Invoke-Test 'shader probe' { pwsh -NoProfile -File (Join-Path $root 'tests\shader_probe\run.ps1') }
 Invoke-Test 'shader uniform slots' { pwsh -NoProfile -File (Join-Path $root 'tests\shader_probe\run_slots.ps1') }
+Invoke-Test 'prep_draw in C' { pwsh -NoProfile -File (Join-Path $root 'tests\prep_draw\run.ps1') }
 Invoke-Test 'audio tones' { pwsh -NoProfile -File (Join-Path $root 'tests\audio\run.ps1') }
 
 Invoke-Test 'play to the shop' { Invoke-Driver 'play_driver.lua' }

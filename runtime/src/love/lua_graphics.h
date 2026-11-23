@@ -18,6 +18,15 @@ void affine_multiply(Affine *result, const Affine *left, const Affine *right);
 void write_vertex(GfxVertex *vertex, const Affine *m, f32 x, f32 y, f32 u, f32 v, const f32 *color);
 void read_color_table(lua_State *L, int index, f32 *color);
 
+/* The transform stack, for C code that builds a transform as the Lua calls would. */
+int graphics_push(lua_State *L);
+void graphics_translate(f32 x, f32 y);
+void graphics_scale(f32 sx, f32 sy);
+void graphics_rotate(f32 angle);
+
+/* Adds prepDraw, the game's prep_draw in C, to the table on top of the stack. */
+void lua_graphics_register_prep_draw(lua_State *L);
+
 /* Adds the object constructors and love.graphics.draw to the table on top of the stack. */
 void lua_graphics_register_objects(lua_State *L);
 

@@ -32,6 +32,12 @@ love.update = timing.wrap('update', love.update)
 love.draw = timing.wrap('draw', love.draw)
 nuGC = timing.wrap('gc', nuGC)
 
+-- The game's prep_draw in C (runtime/src/love/lua_prep_draw.c). rawget, because the host
+-- runner's graphics table has none, and a missing member raises an error.
+local native_prep_draw = rawget(love_graphics_native, 'prepDraw')
+if native_prep_draw then prep_draw = native_prep_draw end
+require 'native_engine' ()
+
 local unlock_everything = require 'love_unlock'
 local show_main_menu = Game.main_menu
 

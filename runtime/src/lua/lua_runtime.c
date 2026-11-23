@@ -10,4 +10,5 @@ void lua_runtime_open(lua_State *L)
 {
     call_opener(L, luaopen_bit);
     call_opener(L, luaopen_luajit_compat);
+    call_opener(L, luaopen_game_native);
 }

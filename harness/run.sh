@@ -43,6 +43,7 @@ $CC -O2 -g -Wall $HARNESS_CFLAGS $LINK_FLAGS -o "$BUILD/harness" \
     /work/runtime/src/lua/lua_runtime.c \
     /work/runtime/src/lua/bit.c \
     /work/runtime/src/lua/luajit_compat.c \
+    /work/runtime/src/lua/game_native.c \
     /work/runtime/src/love/lua_data.c \
     "$LUA_SRC"/*.o -L"$ZLIB_ROOT/lib" -lz -lm
 

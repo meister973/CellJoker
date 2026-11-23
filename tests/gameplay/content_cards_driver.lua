@@ -184,7 +184,7 @@ function PLAY_DRIVER()
     if G.STATE == STATES.BLIND_SELECT and G.blind_select_opts then
         local option = G.blind_select_opts[string.lower(G.GAME.blind_on_deck)]
         local button = option and option:get_UIE_by_ID('select_blind_button')
-        if button then
+        if button and not G.GAME.facing_blind then
             G.FUNCS.select_blind(button)
             next_action = frame + 120
         end

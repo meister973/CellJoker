@@ -56,7 +56,7 @@ function PLAY_DRIVER()
     if G.STATE == STATES.BLIND_SELECT and G.blind_select_opts then
         local option = G.blind_select_opts[string.lower(G.GAME.blind_on_deck)]
         local button = option and option:get_UIE_by_ID('select_blind_button')
-        if button then G.FUNCS.select_blind(button); next_action = frame + 120 end
+        if button and not G.GAME.facing_blind then G.FUNCS.select_blind(button); next_action = frame + 120 end
     elseif G.STATE == STATES.SELECTING_HAND and G.hand.cards[1] then
         G.GAME.blind.chips = 1
         for index = 1, math.min(5, #G.hand.cards) do G.hand:add_to_highlighted(G.hand.cards[index]) end
