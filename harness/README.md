@@ -45,10 +45,13 @@ The full log goes to `harness/out/`.
 | `HARNESS_MAX_GROWTH_KB` | The leak check. If `retained_kb` grows more than this per round, the run exits with 1. |
 | `HARNESS_STOCK_LUA=1` | The runner uses Lua 5.1.5 without the patch. Use this as a baseline. |
 | `HARNESS_CLOCK_STEP_US` | The time that each read of the clock adds, in microseconds. The default is 2. |
+| `HARNESS_TIME` | The value of `os.time()` in seconds. The default is 1700000000. The game seeds its random numbers with it at boot, so a fixed value makes two runs the same. |
 | `HARNESS_LUA_GAME=1` | The runner uses the game's Lua engine functions, not the C versions in `runtime/src/lua/game_native.c`. Use this as a baseline. |
 | `HARNESS_COMPARE_GAME=1` | The runner calls the Lua and the C version of each ported engine function on every call. At the first different result, the run stops with an error. The log counts the calls. |
 | `HARNESS_STATE_DUMP` | A file. Every `HARNESS_STATE_EVERY` frames (default 30), the runner writes the transform, velocity and flags of every Moveable to it. A run with `HARNESS_LUA_GAME=1` and a run without it must give the same file. This checks the C versions that change objects, such as `Moveable:move`. |
 | `HARNESS_STATE_EVERY` | The frames between two writes of `HARNESS_STATE_DUMP`. The default is 30. |
+| `HARNESS_DRAW_LOG` | A file. For one frame in every `HARNESS_DRAW_EVERY` (default 30), the runner writes each graphics call with its arguments, and the elements in `G.DRAW_HASH`. A run with `HARNESS_LUA_GAME=1` and a run without it must give the same file. This checks the C versions of draw functions, such as `UIElement:draw_self`. |
+| `HARNESS_DRAW_EVERY` | The frames between two frames that `HARNESS_DRAW_LOG` records. The default is 30. |
 | `HARNESS_CALLGRIND_FROM` | The frame where callgrind starts to collect. The run stops `HARNESS_CALLGRIND_FRAMES` frames later (default 600). See the next section. |
 
 To run the leak check, use this command. Without the fixes it fails at about 1,000 KB per round. With the fixes it passes at about 25 KB per round.

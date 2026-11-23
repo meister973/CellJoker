@@ -4,6 +4,15 @@
 --
 -- Draw calls are counted the way the PS3 renderer issues them: one per drawable, and one
 -- per printed string.
+-- The game seeds math.random with os.time() at boot (globals.lua), so two runs that start in
+-- different seconds play different menus. The runner's clock reads HARNESS_TIME instead.
+local wall_time = os.time
+local START_TIME = tonumber(os.getenv('HARNESS_TIME') or '') or 1700000000
+os.time = function(date)
+    if date then return wall_time(date) end
+    return START_TIME
+end
+
 local SCREEN_WIDTH, SCREEN_HEIGHT = 1280, 720
 
 local function read_png_size(path)
@@ -123,6 +132,67 @@ love_graphics_native = {
     setCanvas = nothing,
     setDefaultFilter = nothing,
 }
+
+-- HARNESS_DRAW_LOG=<file> writes every graphics call of one frame in HARNESS_DRAW_EVERY (default
+-- 30), with its arguments, and the elements in G.DRAW_HASH at the end of that frame. A draw
+-- function in C must give the same file as the game's Lua version (HARNESS_LUA_GAME=1).
+local draw_log_path = os.getenv('HARNESS_DRAW_LOG')
+if draw_log_path then
+    local every = tonumber(os.getenv('HARNESS_DRAW_EVERY') or '') or 30
+    local file = assert(io.open(draw_log_path, 'w'))
+    local frame, recording = 0, false
+    -- Objects are named by the order in which the log first meets them, the same in two runs
+    -- that make the same calls, where addresses are not.
+    local names, next_name = setmetatable({}, { __mode = 'k' }), 0
+    local LOGGED = { 'push', 'pop', 'origin', 'translate', 'scale', 'rotate', 'setColor', 'setLineWidth',
+        'setLineStyle', 'rectangle', 'polygon', 'draw', 'print', 'setShader', 'setCanvas', 'clear' }
+
+    local function text(value)
+        if type(value) == 'number' then return string.format('%.17g', value) end
+        return tostring(value)
+    end
+
+    local function describe(value)
+        if type(value) ~= 'table' then return text(value) end
+        if names[value] then return '#' .. names[value] end
+        if type(value[1]) == 'number' then
+            local parts = {}
+            for i = 1, #value do parts[i] = text(value[i]) end
+            return '{' .. table.concat(parts, ',') .. '}'
+        end
+        next_name = next_name + 1
+        names[value] = next_name
+        return '#' .. next_name
+    end
+
+    local function logged(name, call)
+        return function(...)
+            if recording then
+                local parts = { name }
+                for i = 1, select('#', ...) do parts[#parts + 1] = describe((select(i, ...))) end
+                file:write(table.concat(parts, ' '), '\n')
+            end
+            return call(...)
+        end
+    end
+
+    for _, name in ipairs(LOGGED) do
+        love_graphics_native[name] = logged(name, love_graphics_native[name])
+    end
+
+    local present = love_graphics_native.present
+    love_graphics_native.present = function()
+        frame = frame + 1
+        if recording then
+            local hash = {}
+            for i, element in ipairs(G and G.DRAW_HASH or {}) do hash[i] = describe(element) end
+            file:write('present ', frame, ' draw_hash ', table.concat(hash, ','), '\n')
+            file:flush()
+        end
+        recording = (frame + 1) % every == 0
+        present()
+    end
+end
 
 ---------------------------------------------------------------- audio
 -- A static sound ends after STATIC_SECONDS of simulated time, as a real voice ends, because

@@ -173,6 +173,7 @@ int luaopen_game_native(lua_State *L)
     lua_pushcclosure(L, collides_with_point, KEY_COUNT);
     lua_setfield(L, -2, "collides_with_point");
     game_native_register_move(L);
+    game_native_register_ui(L);
     lua_setglobal(L, "game_native");
     return 0;
 }

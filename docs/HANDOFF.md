@@ -197,7 +197,7 @@ time. If present is large, the frame waits for the RSX. If update and draw are l
 the limit. The clock reads the time base register, because the game's GC step reads the clock up
 to 1000 times a frame, and a system call each time spent the GC budget on the calls.
 
-Three of the game's hot functions run in C. They read the same fields, and do the same arithmetic in
+Four of the game's hot functions run in C. They read the same fields, and do the same arithmetic in
 the same order, as the Lua versions:
 
 - `prep_draw` (`runtime/src/love/lua_prep_draw.c`) sets the transform for each drawn object. In
@@ -214,8 +214,22 @@ the same order, as the Lua versions:
   frames, and a run with `HARNESS_LUA_GAME=1` must give the same file as a run with the C
   versions. The files were equal on the host to ante 4 and on the PPC runner to ante 2. The Lua
   instructions per frame went down from about 230k to about 167k.
+- `UIElement:draw_self` (`runtime/src/lua/ui_native.c`) draws the text, boxes, rows, columns
+  and objects of the UI, about 140 times a frame. An element with an outline, focus, a chosen
+  triangle, a button delay or a progress bar runs the game's Lua version, as does every element
+  when `G.DEBUG` is set. Those are about 1 element a frame. A miss in the vertex cache calls the
+  game's `draw_pixellated_rect`. `HARNESS_DRAW_LOG` writes every graphics call with its
+  arguments, and the log and the state dump of a run with `HARNESS_LUA_GAME=1` must be equal to
+  the ones of a run with the C versions. They were equal on the host to ante 3, with the default
+  driver and with `HARNESS_INPUT=pad`, and on the PPC runner to ante 2. The Lua instructions per
+  frame in `love.draw` went down from about 96k to about 70k, and for the whole frame from
+  about 161k to about 136k.
 
-All three look up their field names through upvalues. A C function that calls `lua_getfield` hashes the
+The game seeds `math.random` with `os.time()` at boot, so the host runner returns a fixed time
+(`HARNESS_TIME`). Without it, two runs that start in different seconds play different menus, and
+their logs cannot be compared.
+
+All of them look up their field names through upvalues. A C function that calls `lua_getfield` hashes the
 key string each time, and that made the first `prep_draw` in C only 16% faster than the Lua one.
 
 Measured per function in the host runner, with the instruction counter: `Moveable:move` is about 31%
