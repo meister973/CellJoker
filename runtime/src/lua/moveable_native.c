@@ -491,6 +491,48 @@ static void move_minor(lua_State *L, int self, int dt, int g, int frames)
     lua_settop(L, top);
 }
 
+/* Copies source.key to target.key, any value, as `target.key = source.key` does. */
+static void copy_field(lua_State *L, int target, int source, enum Key key)
+{
+    lua_pushvalue(L, UPVALUE(key));
+    get(L, source, key);
+    lua_settable(L, target);
+}
+
+/* Moveable:glue_to_major(major_tab), with the same arithmetic order as engine/moveable.lua. */
+static void glue_to_major(lua_State *L, int self, int major)
+{
+    int top = lua_gettop(L);
+    copy_field(L, self, major, KEY_T);
+
+    int vt = push(L, self, KEY_VT);
+    int major_vt = push(L, major, KEY_VT);
+    int major_t = push(L, major, KEY_T);
+    int t = push(L, self, KEY_T);
+    lua_Number major_x = number(L, major_vt, KEY_X);
+    lua_Number major_vt_w = number(L, major_vt, KEY_W);
+    lua_Number major_t_w = number(L, major_t, KEY_W);
+    lua_Number w = number(L, t, KEY_W);
+    set_number(L, vt, KEY_X, major_x + (0.5 * (1 - major_vt_w / (major_t_w)) * w));
+
+    static const enum Key SAME[] = { KEY_Y, KEY_W, KEY_H, KEY_R, KEY_SCALE };
+    for (int i = 0; i < 5; i++)
+        copy_field(L, vt, major_vt, SAME[i]);
+
+    copy_field(L, self, major, KEY_PINCH);
+    copy_field(L, self, major, KEY_SHADOW_PARRALLAX);
+    lua_settop(L, top);
+}
+
+/* Moveable.glue_to_major in C: game_native.glue_to_major(self, major_tab). */
+static int glue_to_major_method(lua_State *L)
+{
+    lua_settop(L, 2);
+    luaL_checkstack(L, STACK_NEEDED, "Moveable:glue_to_major");
+    glue_to_major(L, 1, 2);
+    return 0;
+}
+
 /* The `role_type == 'Major'` branch of Moveable:move. */
 static void move_major(lua_State *L, int self, int dt, int g)
 {
@@ -511,11 +553,17 @@ static void move_by_role(lua_State *L, int self, int dt, int g, int frames)
     if (equals(L, role, KEY_ROLE_TYPE, VALUE_GLUED)) {
         int major = push(L, role, KEY_MAJOR);
         if (lua_toboolean(L, major)) {
-            /* self:glue_to_major(self.role.major) */
+            /* self:glue_to_major(self.role.major). The C method runs here without a call; both
+             * closures carry the same key upvalues. */
             get(L, self, KEY_GLUE_TO_MAJOR);
-            lua_pushvalue(L, self);
-            lua_pushvalue(L, major);
-            lua_call(L, 2, 0);
+            if (lua_tocfunction(L, -1) == glue_to_major_method) {
+                lua_pop(L, 1);
+                glue_to_major(L, self, major);
+            } else {
+                lua_pushvalue(L, self);
+                lua_pushvalue(L, major);
+                lua_call(L, 2, 0);
+            }
         }
         lua_settop(L, top);
         return;
@@ -576,4 +624,9 @@ void game_native_register_move(lua_State *L)
         lua_pushstring(L, KEY_NAMES[key]);
     lua_pushcclosure(L, move, KEY_COUNT);
     lua_setfield(L, -2, "move");
+
+    for (int key = 0; key < KEY_COUNT; key++)
+        lua_pushstring(L, KEY_NAMES[key]);
+    lua_pushcclosure(L, glue_to_major_method, KEY_COUNT);
+    lua_setfield(L, -2, "glue_to_major");
 }

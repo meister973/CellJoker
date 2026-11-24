@@ -197,7 +197,7 @@ time. If present is large, the frame waits for the RSX. If update and draw are l
 the limit. The clock reads the time base register, because the game's GC step reads the clock up
 to 1000 times a frame, and a system call each time spent the GC budget on the calls.
 
-Four of the game's hot functions run in C. They read the same fields, and do the same arithmetic in
+Five of the game's hot functions run in C. They read the same fields, and do the same arithmetic in
 the same order, as the Lua versions:
 
 - `prep_draw` (`runtime/src/love/lua_prep_draw.c`) sets the transform for each drawn object. In
@@ -209,7 +209,8 @@ the same order, as the Lua versions:
   the same result. In the host runner, the Lua instructions per frame went down by about 10%.
 - `Moveable:move` (`runtime/src/lua/moveable_native.c`) eases every object toward its target
   position each frame. It calls the game's Lua methods for the rare paths: a changed alignment,
-  glue, `lr_clamp`, juice and `get_major`. It changes the objects that it moves, so its two versions
+  `lr_clamp`, juice and `get_major`. `Moveable:glue_to_major`, which moves the sprites glued to
+  each card, is also in C, and `move` runs it without a Lua call. It changes the objects that it moves, so its two versions
   cannot run on one call. `HARNESS_STATE_DUMP` writes the transforms of every object every 30
   frames, and a run with `HARNESS_LUA_GAME=1` must give the same file as a run with the C
   versions. The files were equal on the host to ante 4 and on the PPC runner to ante 2. The Lua
@@ -224,6 +225,12 @@ the same order, as the Lua versions:
   driver and with `HARNESS_INPUT=pad`, and on the PPC runner to ante 2. The Lua instructions per
   frame in `love.draw` went down from about 96k to about 70k, and for the whole frame from
   about 161k to about 136k.
+- `DynaText:draw` (`runtime/src/lua/text_native.c`) draws each letter of the game's moving text,
+  first its shadow and then the letter. When `G.DEBUG` is set, the game's Lua version runs. The
+  draw log and the state dump were equal on the host to ante 4, with the default driver and with
+  `HARNESS_INPUT=pad`, and on the PPC runner to ante 2. With `glue_to_major`, the Lua instructions
+  per frame at ante 3 went down from about 136k to about 115k, and in `love.draw` from about 70k
+  to about 56k.
 
 The game seeds `math.random` with `os.time()` at boot, so the host runner returns a fixed time
 (`HARNESS_TIME`). Without it, two runs that start in different seconds play different menus, and
